@@ -31,12 +31,19 @@ export async function POST(req: NextRequest) {
     }
 
     const hasGradle = files.some((f: { path: string }) => f.path === "gradlew");
+    const hasBedrockBp = files.some((f: { path: string }) => f.path.includes("_BP/manifest.json"));
     const isNonGradle = !hasGradle;
 
     if (isNonGradle) {
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       for (const f of files) zip.file(f.path, f.content);
+
+      if (hasBedrockBp) {
+        const blob = await zip.generateAsync({ type: "base64" });
+        return NextResponse.json({ jar: blob, jarName: `${name.replace(/[^a-zA-Z0-9]/g, "_")}.mcaddon` });
+      }
+
       const blob = await zip.generateAsync({ type: "base64" });
       return NextResponse.json({ jar: blob, jarName: `${name.replace(/[^a-zA-Z0-9]/g, "_")}.jar` });
     }

@@ -100,6 +100,54 @@ export function generateModProject(params: {
   } else if (loader === "datapack") {
     files.push({ path: "pack.mcmeta", content: JSON.stringify({ pack: { pack_format: 48, description } }, null, 2) });
     files.push({ path: `data/${modId}/functions/hello.mcfunction`, content: `say ${name} loaded!\n` });
+  } else if (loader === "bedrock") {
+    const uuid = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16); });
+    const bpUuid = uuid();
+    const rpUuid = uuid();
+
+    // manifest for behavior pack
+    files.push({ path: `${name}_BP/manifest.json`, content: JSON.stringify({
+      format_version: 2,
+      header: { name, description, uuid: bpUuid, version: [1, 0, 0], min_engine_version: version.split(".").map(Number) },
+      modules: [{ type: "data", uuid: uuid(), version: [1, 0, 0] }],
+    }, null, 2) });
+
+    // manifest for resource pack
+    files.push({ path: `${name}_RP/manifest.json`, content: JSON.stringify({
+      format_version: 2,
+      header: { name, description, uuid: rpUuid, version: [1, 0, 0], min_engine_version: version.split(".").map(Number) },
+      modules: [{ type: "resources", uuid: uuid(), version: [1, 0, 0] }],
+      dependencies: [{ uuid: bpUuid, version: [1, 0, 0] }],
+    }, null, 2) });
+
+    // pack_icon
+    files.push({ path: `${name}_BP/pack_icon.png`, content: "" });
+    files.push({ path: `${name}_RP/pack_icon.png`, content: "" });
+
+    // behavior pack content
+    for (const f of features) {
+      if (f.type === "item" || f.type === "weapon" || f.type === "tool" || f.type === "food") {
+        files.push({ path: `${name}_BP/items/${f.id}.json`, content: JSON.stringify({
+          format_version: "1.21.60",
+          "minecraft:item": { description: { identifier: `${modId}:${f.id}` }, components: { "minecraft:max_stack_size": 64 } },
+        }, null, 2) });
+      } else if (f.type === "block" || f.type === "ore") {
+        files.push({ path: `${name}_BP/blocks/${f.id}.json`, content: JSON.stringify({
+          format_version: "1.21.60",
+          "minecraft:block": { description: { identifier: `${modId}:${f.id}` }, components: { "minecraft:loot": `loot_tables/blocks/${f.id}.json` } },
+        }, null, 2) });
+        files.push({ path: `${name}_BP/loot_tables/blocks/${f.id}.json`, content: JSON.stringify({ pools: [{ rolls: 1, entries: [{ type: "item", name: `${modId}:${f.id}` }] }] }, null, 2) });
+      } else if (f.type === "mob") {
+        files.push({ path: `${name}_BP/entities/${f.id}.json`, content: JSON.stringify({
+          format_version: "1.21.60",
+          "minecraft:entity": { description: { identifier: `${modId}:${f.id}`, is_spawnable: true, is_summonable: true } },
+        }, null, 2) });
+      }
+    }
+
+    // resource pack content
+    files.push({ path: `${name}_RP/texts/en_US.lang`, content: `item.${modId}:${modId}=${name}\n` });
+    files.push({ path: `${name}_RP/texts/languages.json`, content: JSON.stringify(["en_US"], null, 2) });
   }
 
   return files;

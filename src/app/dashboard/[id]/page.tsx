@@ -4,8 +4,12 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import type { ModProject, ModFile } from "@/lib/types";
+import type { ModProject, ModFile, ModLoader } from "@/lib/types";
 import { LOADERS, LOADER_ICONS } from "@/lib/types";
+
+const JAVA_LOADERS = new Set<ModLoader>(["fabric", "forge", "neoforge", "quilt", "paper", "velocity"]);
+const isBedrock = (l: ModLoader) => l === "bedrock";
+const isJava = (l: ModLoader) => JAVA_LOADERS.has(l);
 import TerminalPanel from "@/components/TerminalPanel";
 import ThemePicker from "@/components/ThemePicker";
 
@@ -298,7 +302,7 @@ export default function ModDetail() {
           <div className="flex-1" />
           <button onClick={exportAll} disabled={project.files.length === 0 || building} className="px-4 py-1.5 rounded-lg text-[var(--color-bg)] text-xs font-bold tracking-wide transition-all active:scale-[0.97] disabled:opacity-20 disabled:cursor-not-allowed disabled:active:scale-100"
             style={{ background: building ? "rgba(var(--color-primary-rgb),0.5)" : "var(--color-primary)" }}>
-            {building ? <span className="flex items-center gap-1.5"><div className="w-3 h-3 border-2 border-[var(--color-bg)]/30 border-t-[var(--color-bg)] rounded-full animate-spin" /> Building...</span> : "Build JAR"}
+            {building ? <span className="flex items-center gap-1.5"><div className="w-3 h-3 border-2 border-[var(--color-bg)]/30 border-t-[var(--color-bg)] rounded-full animate-spin" /> Building...</span> : (project.loader === "bedrock" ? "Build MCADDON" : "Build JAR")}
           </button>
           <input ref={fileInputRef} type="file" onChange={handleImport} className="hidden" />
         </div>

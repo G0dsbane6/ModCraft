@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import type { ModProject, ModLoader } from "@/lib/types";
-import { MC_VERSIONS, LOADERS, LOADER_ICONS } from "@/lib/types";
+import { MC_VERSIONS, BEDROCK_VERSIONS, LOADERS, LOADER_ICONS } from "@/lib/types";
+
+const JAVA_LOADERS = new Set(["fabric", "forge", "neoforge", "quilt", "paper", "velocity"]);
+const isJavaLoader = (l: string) => JAVA_LOADERS.has(l);
 
 function LoaderIcon({ loader, active }: { loader: string; active?: boolean }) {
   const svg = LOADER_ICONS[loader as keyof typeof LOADER_ICONS];
@@ -131,14 +134,18 @@ export default function NewMod() {
           </div>
 
           <div className="group">
-            <label className="block text-white/20 text-[10px] font-semibold uppercase tracking-[1.5px] mb-2 group-focus-within:text-[var(--color-primary)]/60 transition-colors">Minecraft Version</label>
+            <label className="block text-white/20 text-[10px] font-semibold uppercase tracking-[1.5px] mb-2 group-focus-within:text-[var(--color-primary)]/60 transition-colors">
+              {loader && !isJavaLoader(loader) ? "Bedrock Version" : "Minecraft Version"}
+            </label>
             <select
               value={version}
               onChange={(e) => setVersion(e.target.value)}
               className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.04] rounded-xl text-white/80 text-sm outline-none transition-all focus:border-[var(--color-primary)]/30 appearance-none cursor-pointer"
             >
-              <option value="" className="bg-[var(--color-surface)]">Select version</option>
-              {MC_VERSIONS.map((v) => (
+              <option value="" className="bg-[var(--color-surface)]">
+                {loader && !isJavaLoader(loader) ? "Select Bedrock version" : "Select version"}
+              </option>
+              {(loader && !isJavaLoader(loader) ? BEDROCK_VERSIONS : MC_VERSIONS).map((v) => (
                 <option key={v} value={v} className="bg-[var(--color-surface)]">Minecraft {v}</option>
               ))}
             </select>

@@ -1,4 +1,4 @@
-export type ModLoader = "resource-pack" | "datapack" | "fabric" | "forge" | "neoforge" | "quilt" | "paper" | "velocity";
+export type ModLoader = "resource-pack" | "datapack" | "fabric" | "forge" | "neoforge" | "quilt" | "paper" | "velocity" | "bedrock";
 
 export type ModProject = {
   id: string;
@@ -27,6 +27,17 @@ export const MC_VERSIONS = [
   "1.18.2", "1.18.1", "1.18",
 ] as const;
 
+export const BEDROCK_VERSIONS = [
+  "1.21.71", "1.21.70", "1.21.62", "1.21.61", "1.21.60",
+  "1.21.51", "1.21.50", "1.21.44", "1.21.43", "1.21.42", "1.21.41", "1.21.40",
+  "1.21.31", "1.21.30", "1.21.23", "1.21.22", "1.21.21", "1.21.20",
+  "1.21.3", "1.21.2", "1.21.1", "1.21.0",
+  "1.20.81", "1.20.80", "1.20.73", "1.20.72", "1.20.71", "1.20.70",
+  "1.20.62", "1.20.61", "1.20.60", "1.20.51", "1.20.50",
+  "1.20.41", "1.20.40", "1.20.32", "1.20.31", "1.20.30",
+  "1.20.15", "1.20.10", "1.20.0",
+] as const;
+
 export const LOADER_ICONS: Record<ModLoader, string> = {
   fabric: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 8l8 8M8 16l8-8"/></svg>`,
   forge: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H8l-2 8h12l-2-8z"/><rect x="6" y="10" width="12" height="4" rx="1"/><path d="M10 14v6h4v-6"/></svg>`,
@@ -36,6 +47,7 @@ export const LOADER_ICONS: Record<ModLoader, string> = {
   velocity: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h8l-2 8 10-12h-8l2-8z"/></svg>`,
   "resource-pack": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>`,
   datapack: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><circle cx="12" cy="12" r="2"/></svg>`,
+  bedrock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4z"/><path d="M8 8h3v3H8zM13 8h3v3h-3zM8 13h3v3H8zM13 13h3v3h-3z" fill="currentColor" opacity="0.4"/><path d="M2 6l2-2m18 2l-2-2M2 18l2 2m18-2l-2 2"/></svg>`,
 };
 
 export const LOADERS: { id: ModLoader; label: string; description: string }[] = [
@@ -47,4 +59,5 @@ export const LOADERS: { id: ModLoader; label: string; description: string }[] = 
   { id: "velocity", label: "Velocity", description: "Modern proxy plugin platform" },
   { id: "resource-pack", label: "Resource Pack", description: "Texture and asset packs" },
   { id: "datapack", label: "Datapack", description: "Data-driven vanilla modifications" },
+  { id: "bedrock", label: "Bedrock", description: "Bedrock Edition addons (behavior + resource packs)" },
 ];
