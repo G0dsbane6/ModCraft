@@ -426,7 +426,7 @@ export default function ModDetail() {
                 <p>3. Run: <code className="text-white/70 font-mono">chmod +x gradlew</code></p>
                 <p>4. Run: <code className="text-white/70 font-mono">./gradlew build</code></p>
                 <p>5. Find your JAR in <code className="text-white/70 font-mono">build/libs/</code></p>
-                <p className="text-white/15 text-[10px] pt-2">Requires JDK 21+. Download from <a href="https://adoptium.net" className="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)]" target="_blank" rel="noopener">adoptium.net</a></p>
+                <p className="text-white/15 text-[10px] pt-2">Requires JDK 17+. Download from <a href="https://adoptium.net" className="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)]" target="_blank" rel="noopener">adoptium.net</a></p>
               </div>
             </div>
             <button onClick={() => setBuildResult(null)} className="w-full py-2.5 rounded-xl text-white/30 hover:text-white/60 text-xs transition-all border border-white/[0.04] hover:bg-white/[0.02]">Dismiss</button>
