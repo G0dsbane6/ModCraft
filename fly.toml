@@ -1,0 +1,12 @@
+app = "modcraft"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+
+[env]
+  NODE_ENV = "production"
