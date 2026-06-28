@@ -4,7 +4,7 @@ import path from "path";
 import { execSync } from "child_process";
 import os from "os";
 
-const WRAPPER_JAR_URL = "https://github.com/gradle/gradle/raw/v8.10.0/gradle/wrapper/gradle-wrapper.jar";
+const WRAPPER_JAR_URL = "https://github.com/gradle/gradle/releases/download/v8.10.0/gradle-wrapper.jar";
 
 async function ensureGradleWrapper(tmpDir: string) {
   const jarPath = path.join(tmpDir, "gradle", "wrapper", "gradle-wrapper.jar");
