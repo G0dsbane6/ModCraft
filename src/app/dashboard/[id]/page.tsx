@@ -6,12 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ModProject, ModFile, ModLoader } from "@/lib/types";
 import { LOADERS, LOADER_ICONS } from "@/lib/types";
-
-const JAVA_LOADERS = new Set<ModLoader>(["fabric", "forge", "neoforge", "quilt", "paper", "velocity"]);
-const isBedrock = (l: ModLoader) => l === "bedrock";
-const isJava = (l: ModLoader) => JAVA_LOADERS.has(l);
+import type { ChatMessage } from "@/lib/modai";
 import TerminalPanel from "@/components/TerminalPanel";
 import ThemePicker from "@/components/ThemePicker";
+
+const JAVA_LOADERS = new Set<ModLoader>(["fabric", "forge", "neoforge", "quilt", "paper", "velocity"]);
 
 function LoaderIcon({ loader }: { loader: string }) {
   const svg = LOADER_ICONS[loader as keyof typeof LOADER_ICONS];
@@ -35,15 +34,17 @@ export default function ModDetail() {
   const [showNewFile, setShowNewFile] = useState(false);
   const [notification, setNotification] = useState("");
   const [notifError, setNotifError] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [showAi, setShowAi] = useState(false);
   const [building, setBuilding] = useState(false);
   const [buildResult, setBuildResult] = useState<{ jarUrl?: string; jarName?: string; zipUrl?: string; buildError?: string; note?: string } | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [showAi, setShowAi] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<ModFile[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const aiInputRef = useRef<HTMLTextAreaElement>(null);
   const notifTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("modcraft_projects");
@@ -56,6 +57,10 @@ export default function ModDetail() {
       }
     }
   }, [id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatHistory]);
 
   const save = useCallback((updated: ModProject) => {
     const stored = localStorage.getItem("modcraft_projects");
@@ -107,19 +112,19 @@ export default function ModDetail() {
 
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     if (!project || !e.target.files) return;
-    const file = e.target.files[0];
-    if (!file) return;
+    const f = e.target.files[0];
+    if (!f) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
-      const path = file.webkitRelativePath || file.name;
-      if (project.files.some((f) => f.path === path)) { notify("File already exists", true); return; }
+      const path = f.webkitRelativePath || f.name;
+      if (project.files.some((pf) => pf.path === path)) { notify("File already exists", true); return; }
       const updated = [...project.files, { path, content }];
       save({ ...project, files: updated, updatedAt: Date.now() });
       selectFile(path);
       notify(`Imported ${path}`);
     };
-    reader.readAsText(file);
+    reader.readAsText(f);
     e.target.value = "";
   }
 
@@ -144,30 +149,63 @@ export default function ModDetail() {
     input.click();
   }
 
-  async function handleAiGenerate() {
-    if (!project || !aiPrompt.trim()) return;
+  async function sendChatMessage(userMessage: string) {
+    if (!project || !userMessage.trim() || generating) return;
+
+    const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: userMessage }];
+    setChatHistory(newHistory);
+    setChatInput("");
     setGenerating(true);
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: project.name, description: aiPrompt, loader: project.loader, version: project.version, author: project.author, customPrompt: true }),
+        body: JSON.stringify({
+          name: project.name,
+          description: userMessage,
+          loader: project.loader,
+          version: project.version,
+          author: project.author,
+          history: newHistory,
+          customPrompt: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");
-      const newFiles: ModFile[] = data.files;
-      const merged = [...project.files];
-      let added = 0;
-      for (const f of newFiles) { if (!merged.some((e) => e.path === f.path)) { merged.push(f); added++; } }
-      save({ ...project, files: merged, updatedAt: Date.now() });
-      const source = data.source === "local" ? "local engine" : "AI";
-      const detail = data.features ? ` [${data.features.join(", ")}]` : "";
-      notify(`${source} generated ${newFiles.length} files (${added} new)${detail}`);
-      if (newFiles.length > 0 && !merged.some((f) => f.path === selectedFile)) selectFile(newFiles[0].path);
-      setShowAi(false);
+
+      if (data.type === "question") {
+        setChatHistory(prev => [...prev, { role: "assistant", content: data.question, options: data.options }]);
+      } else if (data.type === "files" && data.files) {
+        setPendingFiles(data.files);
+        const featureList = data.features ? `\n\nDetected: ${data.features.join(", ")}` : "";
+        setChatHistory(prev => [...prev, {
+          role: "assistant",
+          content: `Generated ${data.files.length} files (${data.source})${featureList}`,
+          files: data.files,
+        }]);
+      }
     } catch (err) {
-      notify(err instanceof Error ? err.message : "AI generation failed", true);
-    } finally { setGenerating(false); }
+      const msg = err instanceof Error ? err.message : "AI generation failed";
+      setChatHistory(prev => [...prev, { role: "assistant", content: `Error: ${msg}` }]);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function applyGeneratedFiles(newFiles: ModFile[]) {
+    if (!project) return;
+    const merged = [...project.files];
+    let added = 0;
+    for (const f of newFiles) {
+      if (!merged.some((e) => e.path === f.path)) { merged.push(f); added++; }
+    }
+    save({ ...project, files: merged, updatedAt: Date.now() });
+    notify(`Added ${added} files to project`);
+    setPendingFiles(null);
+    if (newFiles.length > 0 && !merged.some((f) => f.path === selectedFile)) {
+      selectFile(newFiles[0].path);
+    }
   }
 
   async function exportAll() {
@@ -291,10 +329,6 @@ export default function ModDetail() {
           <button onClick={importFolder} className="px-3 py-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.03] text-xs font-medium transition-all">Import Folder</button>
           <button onClick={() => setShowNewFile(!showNewFile)} className="px-3 py-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.03] text-xs font-medium transition-all">New File</button>
           <div className="w-px h-5 bg-white/[0.04] mx-1" />
-          <button onClick={() => { setShowAi(!showAi); setTimeout(() => aiInputRef.current?.focus(), 100); }} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={showAi ? { background: "rgba(var(--color-primary-rgb),0.1)", color: "rgba(var(--color-primary-rgb),0.8)" } : { color: "rgba(var(--color-primary-rgb),0.5)" }}>
-            AI Generate
-          </button>
           <button onClick={() => setShowTerminal(!showTerminal)} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={showTerminal ? { background: "rgba(var(--color-primary-rgb),0.1)", color: "rgba(var(--color-primary-rgb),0.8)" } : { color: "text-white/40" }}>
             Terminal
@@ -312,24 +346,6 @@ export default function ModDetail() {
             <div className="flex items-center gap-2">
               <input value={newFileName} onChange={(e) => setNewFileName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addNewFile()} placeholder="path/to/file.java" className="flex-1 max-w-xs px-3 py-1.5 bg-white/[0.02] border border-white/[0.06] rounded-lg text-white/70 text-xs font-mono outline-none transition-all placeholder:text-white/10 focus:border-[var(--color-primary)]/30" autoFocus />
               <button onClick={addNewFile} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ background: "rgba(var(--color-primary-rgb),0.1)", color: "rgba(var(--color-primary-rgb),0.8)" }}>Create</button>
-            </div>
-          </div>
-        )}
-
-        {showAi && (
-          <div className="max-w-7xl mx-auto px-6 pb-3">
-            <div className="rounded-xl p-4 border" style={{ background: "rgba(var(--color-primary-rgb),0.02)", borderColor: "rgba(var(--color-primary-rgb),0.08)" }}>
-              <label className="block text-white/20 text-[10px] uppercase tracking-widest mb-2 font-semibold">Describe what to build</label>
-              <textarea ref={aiInputRef} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder='e.g. "Create a Fabric mod with a custom sword that glows"' rows={3} className="w-full px-4 py-3 bg-black/40 border border-white/[0.04] rounded-xl text-white/70 text-sm outline-none transition-all placeholder:text-white/10 focus:border-[var(--color-primary)]/20 resize-none font-mono leading-relaxed" />
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-white/10 text-[10px]">Built-in mod AI - no API key needed</p>
-                <div className="flex gap-2">
-                  <button onClick={() => { setShowAi(false); setAiPrompt(""); }} className="px-3 py-1.5 text-white/30 hover:text-white/50 text-xs transition-colors">Cancel</button>
-                  <button onClick={handleAiGenerate} disabled={generating || !aiPrompt.trim()} className="px-4 py-1.5 rounded-lg text-[var(--color-bg)] text-xs font-bold transition-all disabled:opacity-30 flex items-center gap-1.5" style={{ background: "var(--color-primary)" }}>
-                    {generating ? <><div className="w-3 h-3 border-2 border-[var(--color-bg)]/30 border-t-[var(--color-bg)] rounded-full animate-spin" /> Generating...</> : "Generate"}
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -395,6 +411,116 @@ export default function ModDetail() {
           )}
         </div>
       </div>
+
+      {/* AI Chat floating button */}
+      <button
+        onClick={() => setShowAi(!showAi)}
+        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-105 active:scale-95"
+        style={{ background: "var(--color-primary)" }}
+      >
+        {showAi ? (
+          <svg className="w-5 h-5 text-[var(--color-bg)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        ) : (
+          <svg className="w-5 h-5 text-[var(--color-bg)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v8m0 0v8m0-8h8m-8 0H4" /></svg>
+        )}
+      </button>
+
+      {/* AI Chat panel */}
+      {showAi && (
+        <div className="fixed bottom-6 right-6 z-40 w-[400px] max-w-[calc(100vw-3rem)] h-[550px] max-h-[calc(100vh-12rem)] rounded-2xl shadow-2xl border border-white/[0.06] flex flex-col overflow-hidden"
+          style={{ background: "var(--color-surface)" }}>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
+            <span className="text-xs font-semibold uppercase tracking-widest text-white/20">AI Assistant</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setChatHistory([]); setPendingFiles(null); }} className="text-[10px] text-white/15 hover:text-white/40 transition-colors">Clear</button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            {chatHistory.length === 0 && (
+              <div className="text-center py-10">
+                <div className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(var(--color-primary-rgb),0.08)" }}>
+                  <svg className="w-5 h-5" style={{ color: "rgba(var(--color-primary-rgb),0.4)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
+                </div>
+                <p className="text-white/20 text-xs mb-1">What do you want to build?</p>
+                <p className="text-white/10 text-[10px]">Describe a mod feature and I'll generate the code</p>
+              </div>
+            )}
+
+            {chatHistory.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-xl px-4 py-2.5 ${msg.role === "user"
+                  ? "text-white/80 text-sm"
+                  : "text-white/70 text-sm border border-white/[0.04]"}`}
+                  style={msg.role === "user" ? { background: "rgba(var(--color-primary-rgb),0.1)" } : { background: "rgba(255,255,255,0.02)" }}>
+                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+
+                  {msg.options && msg.options.length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {msg.options.map((opt, j) => (
+                        <button
+                          key={j}
+                          onClick={() => sendChatMessage(opt)}
+                          className="px-3 py-1 rounded-lg text-[10px] font-medium transition-all hover:opacity-80"
+                          style={{ background: "rgba(var(--color-primary-rgb),0.08)", color: "rgba(var(--color-primary-rgb),0.7)" }}>
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {msg.files && msg.files.length > 0 && (
+                    <div className="mt-2.5 pt-2.5 border-t border-white/[0.04]">
+                      <div className="text-[10px] text-white/20 mb-1.5 font-mono">
+                        {msg.files.slice(0, 5).map(f => f.path).join(", ")}{msg.files.length > 5 ? ` +${msg.files.length - 5} more` : ""}
+                      </div>
+                      <button
+                        onClick={() => applyGeneratedFiles(msg.files!)}
+                        className="px-3 py-1 rounded-lg text-[10px] font-bold transition-all"
+                        style={{ background: "var(--color-primary)", color: "var(--color-bg)" }}>
+                        {pendingFiles === msg.files ? "Added ✓" : "Add to Project"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {generating && (
+              <div className="flex justify-start">
+                <div className="rounded-xl px-4 py-3 border border-white/[0.04]" style={{ background: "rgba(255,255,255,0.02)" }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: "rgba(var(--color-primary-rgb),0.4)" }} />
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: "rgba(var(--color-primary-rgb),0.4)", animationDelay: "0.1s" }} />
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: "rgba(var(--color-primary-rgb),0.4)", animationDelay: "0.2s" }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          <div className="px-4 py-3 border-t border-white/[0.04]">
+            <div className="flex items-center gap-2">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(chatInput); } }}
+                placeholder="Describe what to build..."
+                className="flex-1 px-4 py-2.5 bg-black/30 border border-white/[0.04] rounded-xl text-white/70 text-xs outline-none transition-all placeholder:text-white/10 focus:border-[var(--color-primary)]/20 font-mono"
+              />
+              <button
+                onClick={() => sendChatMessage(chatInput)}
+                disabled={generating || !chatInput.trim()}
+                className="px-3 py-2.5 rounded-xl transition-all disabled:opacity-20"
+                style={{ background: chatInput.trim() ? "var(--color-primary)" : "rgba(255,255,255,0.04)", color: "var(--color-bg)" }}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+            <p className="text-[10px] text-white/[0.04] mt-1.5 text-center">Built-in mod AI &middot; no API key needed</p>
+          </div>
+        </div>
+      )}
 
       {showTerminal && <TerminalPanel />}
 

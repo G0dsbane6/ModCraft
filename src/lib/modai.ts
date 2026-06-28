@@ -5,6 +5,11 @@ type Feature = {
   props: Record<string, string>;
 };
 
+type Question = {
+  text: string;
+  options: string[];
+};
+
 const FEATURE_KEYWORDS: { keyword: string; type: Feature["type"] }[] = [
   { keyword: "sword", type: "weapon" }, { keyword: "axe", type: "tool" }, { keyword: "pickaxe", type: "tool" }, { keyword: "shovel", type: "tool" }, { keyword: "hoe", type: "tool" },
   { keyword: "helmet", type: "armor" }, { keyword: "chestplate", type: "armor" }, { keyword: "leggings", type: "armor" }, { keyword: "boots", type: "armor" },
@@ -13,6 +18,16 @@ const FEATURE_KEYWORDS: { keyword: string; type: Feature["type"] }[] = [
   { keyword: "mob", type: "mob" }, { keyword: "entity", type: "mob" }, { keyword: "recipe", type: "recipe" }, { keyword: "craft", type: "recipe" },
   { keyword: "tab", type: "creative_tab" }, { keyword: "group", type: "creative_tab" },
 ];
+
+const MATERIAL_OPTIONS = ["Wood", "Stone", "Iron", "Gold", "Diamond", "Netherite"];
+const COLOR_OPTIONS = ["Red", "Blue", "Green", "Yellow", "Purple", "Orange", "White", "Black", "Pink"];
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  files?: { path: string; content: string }[];
+  options?: string[];
+};
 
 export function parseRequest(text: string): Feature[] {
   const features: Feature[] = [];
@@ -48,6 +63,64 @@ function extractName(text: string, keyword: string): string {
 
 function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+export function generateQuestion(history: ChatMessage[], description: string, loader: string): Question | null {
+  const lower = description.toLowerCase();
+  const features = parseRequest(description);
+
+  if (features.length === 0 && history.length <= 1) {
+    return {
+      text: "What kind of mod content do you want to create?",
+      options: ["A new weapon", "A new block/ore", "A new mob", "A food item", "Armor set", "A plant/tree"],
+    };
+  }
+
+  const firstFeature = features[0];
+  if (firstFeature && !firstFeature.name || firstFeature.name === capitalize(firstFeature.type)) {
+    return {
+      text: `What should I name this ${firstFeature.type}?`,
+      options: [`${capitalize(firstFeature.type)} of Power`, `Magic ${capitalize(firstFeature.type)}`, `Nether ${capitalize(firstFeature.type)}`],
+    };
+  }
+
+  const hasWeapon = features.some(f => f.type === "weapon" || f.type === "tool");
+  const hasArmor = features.some(f => f.type === "armor");
+  const hasOre = features.some(f => f.type === "ore");
+  const hasMob = features.some(f => f.type === "mob");
+
+  if (hasWeapon && !lower.includes("diamond") && !lower.includes("iron") && !lower.includes("gold") && !lower.includes("netherite") && !lower.includes("stone") && !lower.includes("wood")) {
+    return {
+      text: "What material should the tool/weapon be made of?",
+      options: MATERIAL_OPTIONS,
+    };
+  }
+
+  if (hasMob && !lower.includes("hostile") && !lower.includes("friendly") && !lower.includes("passive") && !lower.includes("neutral")) {
+    return {
+      text: "Should the mob be hostile, friendly, or neutral?",
+      options: ["Hostile (attacks player)", "Friendly (can be tamed)", "Neutral (defensive)", "Passive (peaceful)"],
+    };
+  }
+
+  if ((firstFeature?.type === "item" || firstFeature?.type === "block") && !lower.includes("color") && !lower.includes("red") && !lower.includes("blue")) {
+    return {
+      text: "What color should it be?",
+      options: COLOR_OPTIONS,
+    };
+  }
+
+  if (hasOre) {
+    const answered = history.some(m => lower.includes("diamond") || lower.includes("iron") || lower.includes("gold"));
+    if (!answered) {
+      return {
+        text: "What should this ore drop when mined?",
+        options: ["Itself (like diamond)", "Raw material (like iron)", "A gem", "Experience + itself"],
+      };
+    }
+  }
+
+  return null;
+}
+
 export function generateModProject(params: {
   name: string;
   description: string;
@@ -64,19 +137,17 @@ export function generateModProject(params: {
 
   const files: { path: string; content: string }[] = [];
 
-  // --- shared gradle files ---
-  files.push({ path: "settings.gradle", content: `rootProject.name = "${name}"\n` });
-  files.push({ path: "gradle.properties", content: `org.gradle.jvmargs=-Xmx2g\norg.gradle.parallel=true\n` });
-  files.push({ path: "gradle/wrapper/gradle-wrapper.properties", content: `distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.10-bin.zip\nnetworkTimeout=10000\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n` });
-  files.push({ path: "gradlew", content: `#!/bin/sh\n\nPRG="$0"\nwhile [ -h "$PRG" ] ; do PRG=$(readlink "$PRG"); done\ncd $(dirname "$PRG")\njava -jar gradle/wrapper/gradle-wrapper.jar "$@"\n` });
-  files.push({ path: "gradlew.bat", content: `@rem Gradle wrapper\n@echo off\n"%JAVA_HOME%/bin/java" -jar "%~dp0/gradle/wrapper/gradle-wrapper.jar" %*\n` });
+  if (loader !== "resource-pack" && loader !== "datapack" && loader !== "bedrock") {
+    files.push({ path: "settings.gradle", content: `rootProject.name = "${name}"\n` });
+    files.push({ path: "gradle.properties", content: `org.gradle.jvmargs=-Xmx2g\norg.gradle.parallel=true\n` });
+    files.push({ path: "gradle/wrapper/gradle-wrapper.properties", content: `distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.10-bin.zip\nnetworkTimeout=10000\nvalidateDistributionUrl=true\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n` });
+    files.push({ path: "gradlew", content: `#!/bin/sh\n\nPRG="$0"\nwhile [ -h "$PRG" ] ; do PRG=$(readlink "$PRG"); done\ncd $(dirname "$PRG")\njava -jar gradle/wrapper/gradle-wrapper.jar "$@"\n` });
+    files.push({ path: "gradlew.bat", content: `@rem Gradle wrapper\n@echo off\n"%JAVA_HOME%/bin/java" -jar "%~dp0/gradle/wrapper/gradle-wrapper.jar" %*\n` });
+  }
 
-  // --- loader-specific build + metadata ---
   if (loader === "fabric") {
     files.push({ path: "build.gradle", content: `plugins {\n\tid 'fabric-loom' version '1.8-SNAPSHOT'\n\tid 'java'\n}\ngroup = '${pkg}'\nversion = '1.0.0'\nrepositories { mavenCentral(); maven { url 'https://maven.fabricmc.net/' } }\ndependencies {\n\tminecraft 'com.mojang:minecraft:${version}'\n\tmappings 'net.fabricmc:yarn:${version}+build.1:v2'\n\tmodImplementation 'net.fabricmc:fabric-loader:0.16.9'\n\tmodImplementation 'net.fabricmc.fabric-api:fabric-api:0.110.0+${version}'\n}\njava { toolchain.languageVersion = JavaLanguageVersion.of(17) }\n` });
-    const entrypoints = [`${pkg}.${clsName}`];
-    const depends: Record<string, string> = { fabricloader: ">=0.16.0", minecraft: `~${version}`, java: ">=21" };
-    files.push({ path: "src/main/resources/fabric.mod.json", content: JSON.stringify({ schemaVersion: 1, id: modId, version: "1.0.0", name, description, authors: [author], license: "MIT", environment: "*", entrypoints: { main: entrypoints }, depends }, null, 2) });
+    files.push({ path: "src/main/resources/fabric.mod.json", content: JSON.stringify({ schemaVersion: 1, id: modId, version: "1.0.0", name, description, authors: [author], license: "MIT", environment: "*", entrypoints: { main: [`${pkg}.${clsName}`] }, depends: { fabricloader: ">=0.16.0", minecraft: `~${version}`, java: ">=21" } }, null, 2) });
     files.push({ path: `src/main/java/${pkgPath}/${clsName}.java`, content: `package ${pkg};\n\nimport net.fabricmc.api.ModInitializer;\nimport net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;\nimport net.minecraft.item.ItemGroup;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;\n\npublic class ${clsName} implements ModInitializer {\n\tpublic static final Logger LOGGER = LoggerFactory.getLogger("${modId}");\n\tpublic static final String MOD_ID = "${modId}";\n\n\t@Override\n\tpublic void onInitialize() {\n\t\tModItems.register();\n\t\tModBlocks.register();\n\t\tLOGGER.info("${name} initialized!");\n\t}\n}\n` });
     files.push({ path: `src/main/java/${pkgPath}/ModItems.java`, content: generateItemsFabric(pkg, pkgPath, modId, features) });
     files.push({ path: `src/main/java/${pkgPath}/ModBlocks.java`, content: generateBlocksFabric(pkg, pkgPath, modId, features) });
@@ -92,7 +163,7 @@ export function generateModProject(params: {
     files.push({ path: `src/main/java/${pkgPath}/${clsName}.java`, content: `package ${pkg};\n\nimport org.bukkit.plugin.java.JavaPlugin;\n\npublic final class ${clsName} extends JavaPlugin {\n\t@Override\n\tpublic void onEnable() { getLogger().info("${name} enabled!"); }\n\t@Override\n\tpublic void onDisable() { getLogger().info("${name} disabled!"); }\n}\n` });
   } else if (loader === "quilt") {
     files.push({ path: "build.gradle", content: `plugins { id 'org.quiltmc.loom' version '1.7.+' }\ngroup = '${pkg}'\nversion = '1.0.0'\nrepositories { mavenCentral(); maven { url 'https://maven.quiltmc.org/repository/release/' } }\ndependencies {\n\tminecraft 'com.mojang:minecraft:${version}'\n\tmappings 'org.quiltmc:quilt-mappings:${version}+build.1:v2'\n\tmodImplementation 'org.quiltmc:quilt-loader:0.26.0'\n}\njava { toolchain.languageVersion = JavaLanguageVersion.of(17) }\n` });
-    files.push({ path: "src/main/resources/quilt.mod.json", content: JSON.stringify({ schemaVersion: 1, id: modId, version: "1.0.0", name, description, authors: [{ name: author }], license: "MIT", environment: "*", entrypoints: { init: [`${pkg}.${clsName}`] }, depends: { "quilt_loader": ">=0.26.0", "minecraft": `~${version}` } }, null, 2) });
+    files.push({ path: "src/main/resources/quilt.mod.json", content: JSON.stringify({ schemaVersion: 1, id: modId, version: "1.0.0", name, description, authors: [{ name: author }], license: "MIT", environment: "*", entrypoints: { init: [`${pkg}.${clsName}`] }, depends: { quilt_loader: ">=0.26.0", minecraft: `~${version}` } }, null, 2) });
     files.push({ path: `src/main/java/${pkgPath}/${clsName}.java`, content: `package ${pkg};\n\nimport org.quiltmc.loader.api.ModContainer;\nimport org.quiltmc.qsl.base.api.entrypoint.ModInitializer;\n\npublic class ${clsName} implements ModInitializer {\n\t@Override\n\tpublic void onInitialize(ModContainer mod) { System.out.println("${name} loaded!"); }\n}\n` });
   } else if (loader === "resource-pack") {
     files.push({ path: "pack.mcmeta", content: JSON.stringify({ pack: { pack_format: 42, description } }, null, 2) });
@@ -105,47 +176,22 @@ export function generateModProject(params: {
     const bpUuid = uuid();
     const rpUuid = uuid();
 
-    // manifest for behavior pack
-    files.push({ path: `${name}_BP/manifest.json`, content: JSON.stringify({
-      format_version: 2,
-      header: { name, description, uuid: bpUuid, version: [1, 0, 0], min_engine_version: version.split(".").map(Number) },
-      modules: [{ type: "data", uuid: uuid(), version: [1, 0, 0] }],
-    }, null, 2) });
-
-    // manifest for resource pack
-    files.push({ path: `${name}_RP/manifest.json`, content: JSON.stringify({
-      format_version: 2,
-      header: { name, description, uuid: rpUuid, version: [1, 0, 0], min_engine_version: version.split(".").map(Number) },
-      modules: [{ type: "resources", uuid: uuid(), version: [1, 0, 0] }],
-      dependencies: [{ uuid: bpUuid, version: [1, 0, 0] }],
-    }, null, 2) });
-
-    // pack_icon
+    files.push({ path: `${name}_BP/manifest.json`, content: JSON.stringify({ format_version: 2, header: { name, description, uuid: bpUuid, version: [1, 0, 0], min_engine_version: version.split(".").map(Number) }, modules: [{ type: "data", uuid: uuid(), version: [1, 0, 0] }] }, null, 2) });
+    files.push({ path: `${name}_RP/manifest.json`, content: JSON.stringify({ format_version: 2, header: { name, description, uuid: rpUuid, version: [1, 0, 0], min_engine_version: version.split(".").map(Number) }, modules: [{ type: "resources", uuid: uuid(), version: [1, 0, 0] }], dependencies: [{ uuid: bpUuid, version: [1, 0, 0] }] }, null, 2) });
     files.push({ path: `${name}_BP/pack_icon.png`, content: "" });
     files.push({ path: `${name}_RP/pack_icon.png`, content: "" });
 
-    // behavior pack content
     for (const f of features) {
       if (f.type === "item" || f.type === "weapon" || f.type === "tool" || f.type === "food") {
-        files.push({ path: `${name}_BP/items/${f.id}.json`, content: JSON.stringify({
-          format_version: "1.21.60",
-          "minecraft:item": { description: { identifier: `${modId}:${f.id}` }, components: { "minecraft:max_stack_size": 64 } },
-        }, null, 2) });
+        files.push({ path: `${name}_BP/items/${f.id}.json`, content: JSON.stringify({ format_version: "1.21.60", "minecraft:item": { description: { identifier: `${modId}:${f.id}` }, components: { "minecraft:max_stack_size": 64 } } }, null, 2) });
       } else if (f.type === "block" || f.type === "ore") {
-        files.push({ path: `${name}_BP/blocks/${f.id}.json`, content: JSON.stringify({
-          format_version: "1.21.60",
-          "minecraft:block": { description: { identifier: `${modId}:${f.id}` }, components: { "minecraft:loot": `loot_tables/blocks/${f.id}.json` } },
-        }, null, 2) });
+        files.push({ path: `${name}_BP/blocks/${f.id}.json`, content: JSON.stringify({ format_version: "1.21.60", "minecraft:block": { description: { identifier: `${modId}:${f.id}` }, components: { "minecraft:loot": `loot_tables/blocks/${f.id}.json` } } }, null, 2) });
         files.push({ path: `${name}_BP/loot_tables/blocks/${f.id}.json`, content: JSON.stringify({ pools: [{ rolls: 1, entries: [{ type: "item", name: `${modId}:${f.id}` }] }] }, null, 2) });
       } else if (f.type === "mob") {
-        files.push({ path: `${name}_BP/entities/${f.id}.json`, content: JSON.stringify({
-          format_version: "1.21.60",
-          "minecraft:entity": { description: { identifier: `${modId}:${f.id}`, is_spawnable: true, is_summonable: true } },
-        }, null, 2) });
+        files.push({ path: `${name}_BP/entities/${f.id}.json`, content: JSON.stringify({ format_version: "1.21.60", "minecraft:entity": { description: { identifier: `${modId}:${f.id}`, is_spawnable: true, is_summonable: true } } }, null, 2) });
       }
     }
 
-    // resource pack content
     files.push({ path: `${name}_RP/texts/en_US.lang`, content: `item.${modId}:${modId}=${name}\n` });
     files.push({ path: `${name}_RP/texts/languages.json`, content: JSON.stringify(["en_US"], null, 2) });
   }
