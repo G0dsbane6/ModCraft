@@ -7,7 +7,7 @@ RUN npm run build
 
 FROM node:22-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y zsh openjdk-17-jdk-headless wget unzip && \
+RUN apt-get update && apt-get install -y zsh bsdmainutils openjdk-17-jdk-headless wget unzip && \
     wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip -O /tmp/gradle.zip && \
     unzip -q /tmp/gradle.zip -d /opt && \
     ln -s /opt/gradle-8.10/bin/gradle /usr/local/bin/gradle && \
