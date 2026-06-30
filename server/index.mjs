@@ -19,9 +19,8 @@ app.prepare().then(() => {
   const wss = new WebSocketServer({ server });
 
   wss.on('connection', (ws) => {
-    const shell = spawn('zsh', ['-i'], {
+    const shell = spawn('script', ['-q', '-c', 'zsh -i', '/dev/null'], {
       env: { ...process.env, TERM: 'xterm-256color' },
-      cwd: process.cwd(),
     });
 
     const send = (data) => {
@@ -32,7 +31,7 @@ app.prepare().then(() => {
     shell.stderr.on('data', send);
 
     ws.on('message', (data) => {
-      shell.stdin.write(data.toString().replace(/\r/g, '\n'));
+      shell.stdin.write(data.toString());
     });
 
     ws.on('close', () => shell.kill('SIGTERM'));

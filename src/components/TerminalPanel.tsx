@@ -42,6 +42,7 @@ export default function TerminalPanel() {
       cursorStyle: "bar",
       allowTransparency: true,
       scrollback: 5000,
+      convertEol: true,
     });
 
     const fitAddon = new FitAddon();
@@ -51,7 +52,6 @@ export default function TerminalPanel() {
 
     if (containerRef.current) {
       term.open(containerRef.current);
-
       requestAnimationFrame(() => fitAddon.fit());
 
       resizeObserver = new ResizeObserver(() => fitAddon.fit());
@@ -61,52 +61,14 @@ export default function TerminalPanel() {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${window.location.host}`);
 
-    let cursorPos = 0;
-    const lineBuf: string[] = [];
-
     ws.onopen = () => {
-      term.onData((data) => {
-        ws.send(data);
-
-        for (const ch of data) {
-          if (ch === "\r") {
-            term.write("\r\n");
-            cursorPos = 0;
-            lineBuf.length = 0;
-          } else if (ch === "\x7f") {
-            if (cursorPos > 0) {
-              term.write("\b \b");
-              cursorPos--;
-              lineBuf.pop();
-            }
-          } else if (ch === "\t") {
-            term.write("  ");
-            cursorPos += 2;
-            lineBuf.push("  ");
-          } else if (ch === "\x03") {
-            term.write("^C\r\n");
-            cursorPos = 0;
-            lineBuf.length = 0;
-          } else if (ch >= " ") {
-            term.write(ch);
-            cursorPos++;
-            lineBuf.push(ch);
-          }
-        }
-      });
+      term.onData((data) => ws.send(data));
     };
 
-    ws.onmessage = (event) => {
-      term.write(event.data);
-    };
+    ws.onmessage = (event) => term.write(event.data);
 
-    ws.onclose = () => {
-      term.write("\r\n\x1b[31mConnection closed\x1b[0m\r\n");
-    };
-
-    ws.onerror = () => {
-      term.write("\r\n\x1b[31mConnection error\x1b[0m\r\n");
-    };
+    ws.onclose = () => term.write("\r\n\x1b[31mConnection closed\x1b[0m\r\n");
+    ws.onerror = () => term.write("\r\n\x1b[31mConnection error\x1b[0m\r\n");
 
     terminalRef.current = term;
     wsRef.current = ws;
