@@ -11,6 +11,8 @@ services:
         value: production
       - key: PORT
         value: 8080
-      # Public Google OAuth client ID (from the Google Cloud OAuth consent screen)
+      # Public Google OAuth client ID (Google Cloud -> OAuth consent screen).
+      # Render auto-injects service env vars as Docker build args, so this is
+      # baked into the client bundle at build time. Fill in your real value.
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
         value: ""

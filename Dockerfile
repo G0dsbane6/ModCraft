@@ -3,6 +3,9 @@
 FROM node:22-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Public OAuth client ID is inlined into the client bundle at build time
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

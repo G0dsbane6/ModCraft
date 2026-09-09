@@ -92,9 +92,11 @@ export default function AuthModal({
     try {
       await loadGsi();
       const session = await new Promise<Session>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("gsi_timeout")), 20000);
         window.google?.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: async (resp) => {
+            clearTimeout(timer);
             if (resp.error || !resp.credential) {
               reject(new Error("cancelled"));
               return;
@@ -130,6 +132,8 @@ export default function AuthModal({
       if (msg === "cancelled") setError("Google sign-in was cancelled.");
       else if (msg === "verification_failed") setError("Google couldn't verify your identity. Try again.");
       else if (msg === "network_error") setError("Couldn't reach the verification server.");
+      else if (msg === "gsi_timeout")
+        setError("Google didn't respond. Add this domain to the OAuth 'Authorized JavaScript origins' in Google Cloud.");
       else setError("Google is unavailable right now.");
     }
   }, [username, email, onAuthed]);

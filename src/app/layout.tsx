@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "ModForge — Forge Intelligence",
   description:
     "Next-generation AI development platform for Minecraft. Generative plugins, voxel .bbmodel art, and real-time network publishing.",
+  icons: [{ rel: "icon", url: "/modforge.png", type: "image/png" }],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
