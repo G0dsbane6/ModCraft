@@ -1,18 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { Search, Lock, Chevron } from "@/components/icons";
 import { StatusDot } from "@/components/ui";
 import { Wordmark } from "@/components/brand";
+import ProfileMenu from "@/components/profile-menu";
+import { getSession } from "@/lib/session";
 
 export default function Topbar({ onAdmin }: { onAdmin: () => void }) {
+  const [menu, setMenu] = useState(false);
+  const session = getSession();
+
+  const initials = (session?.username || "FG")
+    .split(/\s+/)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <header className="flex items-center gap-4 px-4 md:px-5 py-3 border-b border-hairline bg-bone/70 backdrop-blur-xl sticky top-0 z-20">
+    <header className="relative flex items-center gap-4 px-4 md:px-5 py-3 border-b border-hairline bg-bone/70 backdrop-blur-xl sticky top-0 z-20">
       <div className="flex items-center gap-3">
         <Wordmark compact />
         <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wide text-ink-3">
           <span className="text-gold">Workspace</span>
           <Chevron className="w-3 h-3" />
-          <span className="text-ink-2">project · aether-prime</span>
+          <span className="text-ink-2">{session?.username ?? "Forge Space"}</span>
         </span>
       </div>
 
@@ -44,11 +57,16 @@ export default function Topbar({ onAdmin }: { onAdmin: () => void }) {
 
       <button
         type="button"
-        title="Account"
-        className="w-9 h-9 rounded-xl grid place-items-center bg-gradient-to-br from-ink to-ink-2 text-bone border border-ink font-mono text-[11px] font-semibold"
+        title={`${session?.username ?? "Account"} — customize theme`}
+        onClick={() => setMenu((v) => !v)}
+        className={`relative w-9 h-9 rounded-xl grid place-items-center bg-gradient-to-br from-ink to-ink-2 text-bone border font-mono text-[11px] font-semibold transition-all active:scale-95 ${
+          menu ? "border-gold ring-2 ring-gold-pale/60" : "border-ink"
+        }`}
       >
-        ML
+        {initials}
       </button>
+
+      {session && <ProfileMenu session={session} open={menu} onClose={() => setMenu(false)} />}
     </header>
   );
 }

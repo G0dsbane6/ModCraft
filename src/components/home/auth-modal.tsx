@@ -84,43 +84,53 @@ export default function AuthModal({
     setBusy("google");
 
     if (!GOOGLE_CLIENT_ID) {
-      await sleep(1100);
-      onAuthed({
-        username: username.trim() || "Pioneer",
-        email: "pioneer@modforge.dev",
-        method: "google",
-        at: Date.now(),
-      });
+      setBusy(null);
+      setError("Google sign-in isn't configured on this build yet.");
       return;
     }
 
     try {
       await loadGsi();
-      window.google?.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (resp) => {
-          if (resp.error || !resp.credential) {
-            setError("Google sign-in was cancelled.");
-            setBusy(null);
-            return;
-          }
-          try {
-            const data = JSON.parse(atob(resp.credential.split(".")[1]));
-            onAuthed({
-              username: data.name ?? (username.trim() || "Forger"),
-              email: data.email ?? email.trim(),
-              method: "google",
-              at: Date.now(),
-            });
-          } catch {
-            onAuthed({ username: username.trim() || "Forger", email: email.trim(), method: "google", at: Date.now() });
-          }
-        },
+      const session = await new Promise<Session>((resolve, reject) => {
+        window.google?.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (resp) => {
+            if (resp.error || !resp.credential) {
+              reject(new Error("cancelled"));
+              return;
+            }
+            try {
+              const res = await fetch("/api/auth/google", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ credential: resp.credential }),
+              });
+              const data = (await res.json()) as { name?: string; email?: string; error?: string };
+              if (!res.ok) {
+                reject(new Error(data.error ? "verification_failed" : "verification_failed"));
+                return;
+              }
+              resolve({
+                username: data.name?.trim() || username.trim() || "Forger",
+                email: (data.email ?? email.trim()).toLowerCase(),
+                method: "google",
+                at: Date.now(),
+              });
+            } catch {
+              reject(new Error("network_error"));
+            }
+          },
+        });
+        window.google?.accounts.id.prompt();
       });
-      window.google?.accounts.id.prompt();
-    } catch {
-      setError("Google is unavailable right now.");
+      onAuthed(session);
+    } catch (err) {
       setBusy(null);
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "cancelled") setError("Google sign-in was cancelled.");
+      else if (msg === "verification_failed") setError("Google couldn't verify your identity. Try again.");
+      else if (msg === "network_error") setError("Couldn't reach the verification server.");
+      else setError("Google is unavailable right now.");
     }
   }, [username, email, onAuthed]);
 
@@ -258,7 +268,7 @@ export default function AuthModal({
         </div>
 
         <p className="mt-5 text-center font-mono text-[8.5px] uppercase tracking-[0.18em] text-ink-3">
-          encrypted local session · no remote storage · demo build
+          encrypted local session · no remote storage
         </p>
       </motion.div>
     </motion.div>

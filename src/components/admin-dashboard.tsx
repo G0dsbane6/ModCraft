@@ -22,7 +22,7 @@ const POOL: Omit<FeedItem, "id" | "time">[] = [
   { type: "TEX", name: "ender_quartz_16.png", from: "VoxelPaint", tier: "B" },
   { type: "JS", name: "factions-warscore.js", from: "Citadel Labs", tier: "A" },
   { type: "BBMODEL", name: "dragon-scale.bbmodel", from: "Wyrmworks", tier: "S" },
-  { type: "JS", name: "grappling-hook.js", from: "aether-prime", tier: "S" },
+  { type: "JS", name: "grappling-hook.js", from: "modforge internal", tier: "S" },
   { type: "TEX", name: "gold_reinforced.png", from: "ForgeCore forge", tier: "A" },
 ];
 
