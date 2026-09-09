@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Key, X, Shield } from "@/components/icons";
 import { LogoMark } from "@/components/brand";
+import { verifyPasscode } from "@/lib/auth";
 
-const PASSCODES = ["12083153", "1208315312083153"];
 const MAX_LEN = 16;
 
 export default function AdminGate({
@@ -24,9 +24,9 @@ export default function AdminGate({
     setInput((v) => (v.length >= MAX_LEN ? v : v + d));
   }, []);
 
-  const verify = useCallback(() => {
-    const digits = input.replace(/\D/g, "");
-    if (PASSCODES.includes(digits)) {
+  const verify = useCallback(async () => {
+    const ok = await verifyPasscode(input);
+    if (ok) {
       setState("granted");
       setTimeout(onUnlock, 900);
     } else {

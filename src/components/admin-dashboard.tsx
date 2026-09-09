@@ -45,7 +45,7 @@ const MODELS = [
   { id: "bbm_0x9E1B7D", name: "ender-keystone.bbmodel", bones: 4, cubes: 9, uv: "99.1%", ok: true },
 ];
 
-export default function AdminDashboard({ onExit }: { onExit: () => void }) {
+export default function AdminDashboard({ open, onExit }: { open: boolean; onExit: () => void }) {
   const [feed, setFeed] = useState<FeedItem[]>(() =>
     POOL.slice(0, 5).map((p, i) => ({ ...p, id: i, time: "10:0" + (i + 1) }))
   );
@@ -84,11 +84,15 @@ export default function AdminDashboard({ onExit }: { onExit: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.35 }}
+      animate={{ opacity: open ? 1 : 0 }}
+      transition={{ duration: open ? 0.5 : 0.15 }}
       className="fixed inset-0 z-40 overflow-y-auto"
-      style={{ background: "linear-gradient(180deg, #f7f3e7 0%, #efe8d6 100%)" }}
+      style={{
+        background: "linear-gradient(180deg, #f7f3e7 0%, #efe8d6 100%)",
+        visibility: open ? "visible" : "hidden",
+        pointerEvents: open ? "auto" : "none",
+      }}
+      aria-hidden={!open}
     >
       <div className="sticky top-0 z-30 border-b border-hairline bg-bone/80 backdrop-blur-xl">
         <div className="flex items-center gap-4 px-5 py-3">

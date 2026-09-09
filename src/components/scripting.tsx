@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Bolt, Globe, Shield } from "@/components/icons";
 import { Card, PanelHeader, Pill } from "@/components/ui";
 import { CodeBlocks } from "@/lib/highlight";
-import { PLUGIN_SOURCE, PROMPT_DEFAULT } from "@/lib/plugin";
+import { PLUGIN_SOURCE } from "@/lib/plugin";
 
 const STAGES = ["parsing intent", "mapping event tree", "inlining energy store", "optimizing event loop"];
 
@@ -15,7 +15,7 @@ export default function Scripting({
   publishing: boolean;
   onPublish: () => void;
 }) {
-  const [prompt, setPrompt] = useState(PROMPT_DEFAULT);
+  const [prompt, setPrompt] = useState("");
   const [phase, setPhase] = useState<"idle" | "thinking" | "done">("idle");
   const [stageIdx, setStageIdx] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);

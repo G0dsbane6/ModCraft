@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type * as THREE from "three";
-import { Cube, Globe } from "@/components/icons";
+import { Cube, Globe, Download } from "@/components/icons";
 import { Card, PanelHeader, Pill } from "@/components/ui";
 import { GRAPPLING_HOOK, type VoxelBone } from "@/lib/model";
+import { saveModelZip, MODEL_NAME } from "@/lib/export";
 
 type ThreeNS = typeof THREE;
 
@@ -58,6 +59,7 @@ export default function ModelViewer() {
   const apiRef = useRef<{ setAutoRotating: (v: boolean) => void; setSimulation: (v: boolean) => void } | null>(null);
   const [autoRotate, setAutoRotate] = useState(true);
   const [simulation, setSimulation] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -208,6 +210,22 @@ export default function ModelViewer() {
         tag="webgl"
         right={
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  await saveModelZip();
+                } finally {
+                  setTimeout(() => setSaving(false), 1200);
+                }
+              }}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-[10.5px] uppercase tracking-wide transition-all disabled:opacity-70 text-bone bg-gradient-to-r from-gold-deep to-gold border-transparent hover:brightness-105 active:scale-95"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {saving ? "packing…" : `save ${MODEL_NAME}.zip`}
+            </button>
             <button
               type="button"
               onClick={() => {

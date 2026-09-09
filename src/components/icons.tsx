@@ -142,3 +142,17 @@ export const Fence = (p: P) => (
     <path d="M16 4 21 20M18 4l5 16" />
   </svg>
 );
+
+export const Download = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 4v11M7.5 11 12 15.5 16.5 11" />
+    <path d="M4 19h16" />
+  </svg>
+);
+
+export const LogOut = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M14 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7" />
+    <path d="m16 8 4 4-4 4M20 12H9" />
+  </svg>
+);

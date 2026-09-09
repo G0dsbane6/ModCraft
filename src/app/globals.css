@@ -117,3 +117,48 @@
   50% { transform: scaleY(1); }
 }
 .eq-bar { animation: mf-eq 1s ease-in-out infinite; transform-origin: bottom; }
+
+/* ---- home hero cubes ---- */
+.mf-cube {
+  position: absolute;
+  width: var(--s);
+  height: var(--s);
+  left: var(--x);
+  top: var(--y);
+  background: linear-gradient(135deg, #f0cd66, #c1951c 45%, #8a6d18 90%);
+  border: 1px solid rgba(255, 245, 200, 0.55);
+  box-shadow:
+    inset 5px 5px 12px rgba(255, 255, 255, 0.35),
+    inset -6px -6px 14px rgba(74, 57, 13, 0.55),
+    0 18px 40px -18px rgba(138, 109, 24, 0.7);
+  transform-style: preserve-3d;
+  animation: mf-float var(--d, 6s) ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes mf-float {
+  0% {
+    transform: translate3d(0, 0, 0) rotateX(14deg) rotateY(-20deg) scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(var(--tx, 24px), var(--ty, -18px), 0) rotateX(22deg) rotateY(16deg) scale(1.08);
+    opacity: 0.95;
+  }
+}
+
+.mf-conic {
+  background: conic-gradient(from 210deg at 50% 42%, #c1951c, #f4dd8a, #8a6d18, #e2b63a, #c1951c);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(138, 109, 24, 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(138, 109, 24, 0.10) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(75% 70% at 50% 38%, black 30%, transparent 75%);
+  mask-image: radial-gradient(75% 70% at 50% 38%, black 30%, transparent 75%);
+}

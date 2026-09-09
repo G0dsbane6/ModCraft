@@ -3,13 +3,12 @@
 import { useRef, useState } from "react";
 import { Cube, Check } from "@/components/icons";
 import { Card, PanelHeader } from "@/components/ui";
-import { VOXEL_PROMPT_DEFAULT } from "@/lib/plugin";
 import { UPSCALED_MODEL_STATS } from "@/lib/model";
 
 const MILESTONES = ["voxel geometry", "uv bake", "tex 16×16"];
 
 export default function VoxelGen() {
-  const [prompt, setPrompt] = useState(VOXEL_PROMPT_DEFAULT);
+  const [prompt, setPrompt] = useState("");
   const [phase, setPhase] = useState<"idle" | "working" | "done">("idle");
   const [doneCount, setDoneCount] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);

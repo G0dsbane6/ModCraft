@@ -45,9 +45,3 @@ function emitBurst(location, particleId) {
   OVERWORLD.spawnParticle(particleId, location.add({ x: 0, y: 1, z: 0 }));
 }
 `;
-
-export const PROMPT_DEFAULT =
-  "Write a server script for a custom grappling hook item. When a player right-clicks, fire a vector-based velocity line toward the target block, pull the player smoothly to that location, trigger particle clouds at both origin and destination, and deduct 5 energy points from their custom player data map.";
-
-export const VOXEL_PROMPT_DEFAULT =
-  "A sleek, modern steampunk grappling hook device forged from brass and glowing ender quartz crystals.";
